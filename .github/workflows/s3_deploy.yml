@@ -5,7 +5,7 @@ on:
   push:
     branches: [ develop ]
 env:
-  AWS_S3_BUCKET: 'stage-ui-growth-front-admin'
+  AWS_S3_BUCKET: 'stage-my-s3'
   AWS_REGION: ${{ secrets.AWS_REGION }}
   SOURCE_DIR: 'out/'
 

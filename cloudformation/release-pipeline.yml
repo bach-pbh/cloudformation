@@ -36,11 +36,11 @@ Resources:
                   - !Sub arn:${AWS::Partition}:s3:::${FrontAdminBucket}/*
                   - !Sub arn:${AWS::Partition}:s3:::${FrontAdminBucket}
                   - !Sub arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}
-# 「Env」-ui-growth-front-admin　作成
+# ${Env}-my-s3　作成
   FrontAdminBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub ${Env}-ui-growth-front-admin
+      BucketName: !Sub ${Env}-my-s3
       PublicAccessBlockConfiguration:
         BlockPublicAcls: True
         BlockPublicPolicy: True
@@ -96,7 +96,7 @@ Resources:
           ResponseHeadersPolicyId: 60669652-455b-4ae9-85a4-c4c02393f86c
         Enabled: true
         IPV6Enabled: false
-        Comment: !Sub ${Env} ui growth front admin
+        Comment: !Sub ${Env} my app
         DefaultRootObject: index.html
   OriginAccessControl:
     Type: AWS::CloudFront::OriginAccessControl
