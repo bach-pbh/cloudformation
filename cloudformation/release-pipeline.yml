@@ -1,0 +1,109 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: "Steps to host and publish with HTTPS CloudFront + S3"
+
+Metadata:
+  "AWS::CloudFormation::Interface":
+    ParameterGroups:
+      - Label:
+          default: General Settings
+        Parameters:
+          - Env
+Parameters:
+  Env:
+    Type: String
+    Description: "Environment variables common to all templates. Eg: prod,stage."
+    Default: stage
+
+Resources:
+# git actions デップロイ用iamユーザ
+  CodePipelineServiceIAMUser:
+    Type: "AWS::IAM::User"
+    Properties:
+      Policies:
+        - PolicyName: !Sub ${Env}-front-s3-deploy-Policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: VisualEditor0
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:DeleteObject
+                  - cloudfront:CreateInvalidation
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::${FrontAdminBucket}/*
+                  - !Sub arn:${AWS::Partition}:s3:::${FrontAdminBucket}
+                  - !Sub arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}
+# 「Env」-ui-growth-front-admin　作成
+  FrontAdminBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${Env}-ui-growth-front-admin
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: True
+        BlockPublicPolicy: True
+        IgnorePublicAcls: True
+        RestrictPublicBuckets: True
+
+  FrontAdminBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: FrontAdminBucket
+      PolicyDocument:
+        Statement:
+          - Action: s3:GetObject
+            Effect: Allow
+            Resource: !Sub arn:${AWS::Partition}:s3:::${FrontAdminBucket}/*
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}
+          - Action:
+              - s3:PutObject
+              - s3:GetObject
+              - s3:ListBucket
+              - s3:DeleteObject
+            Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::${AWS::AccountId}:user/${CodePipelineServiceIAMUser}
+            Resource:
+              - !Sub arn:${AWS::Partition}:s3:::${FrontAdminBucket}/*
+              - !Sub arn:${AWS::Partition}:s3:::${FrontAdminBucket}
+# CloudFront 作成
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Origins:
+          - DomainName: !Sub ${FrontAdminBucket}.s3.ap-northeast-1.amazonaws.com
+            Id: S3Origin
+            S3OriginConfig:
+              OriginAccessIdentity: ""
+            OriginAccessControlId: !GetAtt OriginAccessControl.Id
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ForwardedValues:
+            QueryString: false
+            Cookies:
+              Forward: none
+          ViewerProtocolPolicy: https-only
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+          OriginRequestPolicyId: acba4595-bd28-49b8-b9fe-13317c0390fa
+          ResponseHeadersPolicyId: 60669652-455b-4ae9-85a4-c4c02393f86c
+        Enabled: true
+        IPV6Enabled: false
+        Comment: !Sub ${Env} ui growth front admin
+        DefaultRootObject: index.html
+  OriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Description: !Sub OAC of ${FrontAdminBucket}. Created by ${AWS::StackName}
+        Name: !Sub OAC-${FrontAdminBucket}
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
